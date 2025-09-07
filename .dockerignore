@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+*.sqlite
+*.db
+
+# Env and VCS
+.env
+.venv/
+.git/
+.gitignore
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.whl
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
