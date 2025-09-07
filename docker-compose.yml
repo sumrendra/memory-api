@@ -12,9 +12,14 @@ services:
     # Load environment from .env in the project root
     env_file:
       - .env
+    networks:
+      postgres_default:
+      external: true
+  default:
+    driver: bridge
     # Basic healthcheck hitting the /health endpoint
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      test: ["CMD", "curl", "-f", "http://192.168.1.4:8081/health"]
       interval: 30s
       timeout: 5s
       retries: 3
