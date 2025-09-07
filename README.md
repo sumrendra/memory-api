@@ -61,6 +61,8 @@ curl -s -X POST http://localhost:8081/memory/search \
 ## Notes
 
 - Default embeddings provider is HuggingFace with sentence-transformers/all-mpnet-base-v2 (dim 768). If you change provider/model (e.g., Ollama nomic-embed-text, or OpenAI text-embedding-3-small), ensure the DB column VECTOR(dim) matches.
-- The service uses langchain-postgres PGVector to read/write to rag.chunks and pgvector cosine ops.
+- Dimension validation: GET /config validates that the embedding vector length, your configured VECTOR_DIM, and the DB column dimension all match. It returns 500 with details if mismatched so you can fix config before use.
+- The service uses direct SQL with SQLAlchemy for store/search and pgvector cosine ops; schema/table can be controlled via env.
 - For idempotency, /memory/store removes existing chunks with the same doc_id before insert.
-- You can filter by metadata in /memory/search with exact matches (e.g., {"source": "web"}).
+- Semantic deduplication: /memory/store performs greedy cosine-based dedupe within a single request to avoid near-duplicate chunks. Configure via DEDUPE_ENABLED (default on) and DEDUPE_THRESHOLD (default 0.98).
+- You can filter by metadata in /memory/search with exact matches (e.g., {"source": "web"}) and you can restrict to a specific doc_id by passing doc_id in the request.
