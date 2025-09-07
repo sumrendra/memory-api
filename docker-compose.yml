@@ -2,28 +2,21 @@ version: "3.8"
 
 services:
   memory-api:
-    build: .
-    image: memory-api:latest
+    build:
+      context: https://github.com/sumrendra/memory-api.git
     container_name: memory-api
     restart: unless-stopped
     ports:
-      - "${PORT:-8081}:8081"
-    env_file:
-      - .env
-    networks:
-      - postgres_default
+      - "8081:8081"
+    environment:
+      - DATABASE_URL=postgresql://admin:epaps0991g@192.168.1.4:5432/appdb
+      - OPENAI_API_KEY=YOUR_OPENAI_KEY_HERE
+      - EMBEDDING_PROVIDER=huggingface
+      - VECTOR_DIM=768
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '0.5'
-
-networks:
-  postgres_default:
-    external: true
