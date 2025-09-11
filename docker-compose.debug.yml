@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  memory-api-debug:
+    build:
+      context: https://github.com/sumrendra/memory-api.git
+    container_name: memory-api-debug
+    restart: "no"
+    ports:
+      - "8081:8081"
+    environment:
+      - DATABASE_URL=postgresql://admin:epaps0991g@192.168.1.4:5432/appdb
+      - EMBEDDING_PROVIDER=huggingface
+      - VECTOR_DIM=768
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+    # Override command to see what happens
+    command: ["python", "-c", "import sys; print('Python path:', sys.path); exec(open('memory-api.py').read())"]
+    # No health check for debugging
+    networks:
+      - memory-network
+
+networks:
+  memory-network:
+    driver: bridge
