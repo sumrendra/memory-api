@@ -21,4 +21,4 @@ EXPOSE 8081
 ENV PORT=8081
 
 # Start the API
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
+CMD ["uvicorn", "memory-api:app", "--host", "0.0.0.0", "--port", "8081"]

@@ -13,10 +13,40 @@ services:
       - OPENAI_API_KEY=YOUR_OPENAI_KEY_HERE
       - EMBEDDING_PROVIDER=huggingface
       - VECTOR_DIM=768
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
+    command: ["uvicorn", "memory-api:app", "--host", "0.0.0.0", "--port", "8081"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    networks:
+      - memory-network
+
+  neurochat-ui:
+    build:
+      context: https://github.com/sumrendra/memory-api.git
+      dockerfile: Dockerfile.streamlit
+    container_name: neurochat-ui
+    restart: unless-stopped
+    ports:
+      - "8502:8502"
+    environment:
+      - MEMORY_API_BASE=http://memory-api:8081
+      - LM_STUDIO_API=http://192.168.1.14:1234/v1/chat/completions
+    depends_on:
+      memory-api:
+        condition: service_healthy
+    command: ["streamlit", "run", "streamlit_chat.py", "--server.port=8502", "--server.address=0.0.0.0", "--browser.gatherUsageStats=false"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8502/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    networks:
+      - memory-network
+
+networks:
+  memory-network:
+    driver: bridge

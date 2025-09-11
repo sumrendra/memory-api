@@ -1,0 +1,49 @@
+# Dockerfile.streamlit - NeuroChat UI Container
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY streamlit_chat.py .
+COPY lm_studio_tools.py .
+
+# Create streamlit config directory
+RUN mkdir -p ~/.streamlit
+
+# Create streamlit config
+RUN echo '[server]\n\
+headless = true\n\
+port = 8502\n\
+address = "0.0.0.0"\n\
+\n\
+[browser]\n\
+gatherUsageStats = false\n\
+\n\
+[theme]\n\
+base = "dark"\n\
+primaryColor = "#667eea"\n\
+backgroundColor = "#0e1117"\n\
+secondaryBackgroundColor = "#262730"\n\
+textColor = "#ffffff"' > ~/.streamlit/config.toml
+
+# Expose port
+EXPOSE 8502
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+  CMD curl -f http://localhost:8502/_stcore/health || exit 1
+
+# Run streamlit
+CMD ["streamlit", "run", "streamlit_chat.py", "--server.port=8502", "--server.address=0.0.0.0"]
