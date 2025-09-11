@@ -22,11 +22,14 @@ COPY lm_studio_tools.py .
 # Create streamlit config directory
 RUN mkdir -p ~/.streamlit
 
-# Create streamlit config
+# Create streamlit config optimized for containers
 RUN echo '[server]\n\
 headless = true\n\
 port = 8502\n\
 address = "0.0.0.0"\n\
+enableCORS = false\n\
+enableXsrfProtection = false\n\
+maxUploadSize = 200\n\
 \n\
 [browser]\n\
 gatherUsageStats = false\n\
@@ -36,7 +39,10 @@ base = "dark"\n\
 primaryColor = "#667eea"\n\
 backgroundColor = "#0e1117"\n\
 secondaryBackgroundColor = "#262730"\n\
-textColor = "#ffffff"' > ~/.streamlit/config.toml
+textColor = "#ffffff"\n\
+\n\
+[global]\n\
+developmentMode = false' > ~/.streamlit/config.toml
 
 # Expose port
 EXPOSE 8502

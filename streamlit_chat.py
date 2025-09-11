@@ -359,9 +359,14 @@ def store_memory(text: str, doc_id: str = None, meta: dict = None) -> dict:
             "text": text,
             "meta": meta or {}
         }
-        response = requests.post(f"{MEMORY_API_BASE}/memory/store", json=payload, timeout=10)
+        # Increased timeout for container networking
+        response = requests.post(f"{MEMORY_API_BASE}/memory/store", json=payload, timeout=60)
         response.raise_for_status()
         return {"success": True, "data": response.json()}
+    except requests.exceptions.Timeout:
+        return {"success": False, "error": "Memory API timeout - please try again"}
+    except requests.exceptions.ConnectionError:
+        return {"success": False, "error": "Cannot connect to Memory API - check if service is running"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -369,18 +374,27 @@ def search_memory(query: str, top_k: int = 5) -> dict:
     """Search memory via API"""
     try:
         payload = {"query": query, "top_k": top_k}
-        response = requests.post(f"{MEMORY_API_BASE}/memory/search", json=payload, timeout=10)
+        # Increased timeout for container networking
+        response = requests.post(f"{MEMORY_API_BASE}/memory/search", json=payload, timeout=60)
         response.raise_for_status()
         return {"success": True, "data": response.json()}
+    except requests.exceptions.Timeout:
+        return {"success": False, "error": "Memory API search timeout - please try again"}
+    except requests.exceptions.ConnectionError:
+        return {"success": False, "error": "Cannot connect to Memory API - check if service is running"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 def check_memory_api_status() -> dict:
     """Check if Memory API is accessible"""
     try:
-        response = requests.get(f"{MEMORY_API_BASE}/health", timeout=5)
+        response = requests.get(f"{MEMORY_API_BASE}/health", timeout=30)
         response.raise_for_status()
         return {"success": True, "status": "online"}
+    except requests.exceptions.Timeout:
+        return {"success": False, "error": "Memory API health check timeout"}
+    except requests.exceptions.ConnectionError:
+        return {"success": False, "error": "Cannot connect to Memory API"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -396,9 +410,14 @@ def chat_with_llm(messages: list, tools: list = None) -> dict:
         if tools:
             payload["tools"] = tools
             
-        response = requests.post(LM_STUDIO_API, json=payload, timeout=30)
+        # Increased timeout for LLM response
+        response = requests.post(LM_STUDIO_API, json=payload, timeout=120)
         response.raise_for_status()
         return {"success": True, "data": response.json()}
+    except requests.exceptions.Timeout:
+        return {"success": False, "error": "LLM response timeout - please try again"}
+    except requests.exceptions.ConnectionError:
+        return {"success": False, "error": "Cannot connect to LM Studio - check if service is running"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -436,28 +455,44 @@ MEMORY_TOOLS = [
 ]
 
 def execute_memory_tool(tool_name: str, arguments: dict) -> str:
-    """Execute memory tools and return result"""
-    if tool_name == "store_memory":
-        result = store_memory(
-            text=arguments["content"],
-            meta={
-                "category": arguments["category"],
-                "timestamp": datetime.now().isoformat(),
-                "source": "web_chat"
-            }
-        )
-        if result["success"]:
-            return f"✅ Stored: {arguments['content']}"
-        else:
-            return f"❌ Failed to store memory: {result['error']}"
+    """Execute memory tools with retry logic"""
+    max_retries = 3
     
-    elif tool_name == "recall_memory":
-        result = search_memory(arguments["query"], top_k=3)
-        if result["success"] and result["data"].get("results"):
-            memories = [r['chunk'] for r in result["data"]["results"][:3]]
-            return f"🔍 Found memories: {'; '.join(memories)}"
-        else:
-            return "🔍 No relevant memories found"
+    for attempt in range(max_retries):
+        try:
+            if tool_name == "store_memory":
+                result = store_memory(
+                    text=arguments["content"],
+                    meta={
+                        "category": arguments["category"],
+                        "timestamp": datetime.now().isoformat(),
+                        "source": "web_chat"
+                    }
+                )
+                if result["success"]:
+                    return f"✅ Stored: {arguments['content'][:100]}{'...' if len(arguments['content']) > 100 else ''}"
+                else:
+                    if attempt < max_retries - 1:
+                        time.sleep(2)  # Wait before retry
+                        continue
+                    return f"❌ Failed to store memory after {max_retries} attempts: {result['error']}"
+            
+            elif tool_name == "recall_memory":
+                result = search_memory(arguments["query"], top_k=3)
+                if result["success"] and result["data"].get("results"):
+                    memories = [r['chunk'] for r in result["data"]["results"][:3]]
+                    return f"🔍 Found {len(memories)} memories: {'; '.join([m[:100] + '...' if len(m) > 100 else m for m in memories])}"
+                else:
+                    if attempt < max_retries - 1 and "timeout" in result.get("error", "").lower():
+                        time.sleep(2)  # Wait before retry
+                        continue
+                    return f"🔍 No relevant memories found: {result.get('error', 'Unknown error')}"
+                    
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(2)
+                continue
+            return f"❌ Tool execution failed after {max_retries} attempts: {str(e)}"
     
     return "❌ Unknown tool"
 
